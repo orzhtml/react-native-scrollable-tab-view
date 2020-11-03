@@ -13,7 +13,6 @@ const {
   InteractionManager,
 } = ReactNative;
 
-const ViewPagerAndroid = require('@react-native-community/viewpager');
 const TimerMixin = require('react-timer-mixin');
 const ViewPager = require('@react-native-community/viewpager');
 
@@ -37,6 +36,7 @@ const ScrollableTabView = createReactClass({
   propTypes: {
     tabBarPosition: PropTypes.oneOf(['top', 'bottom', 'overlayTop', 'overlayBottom', ]),
     initialPage: PropTypes.number,
+    keyboardShouldPersistTaps: PropTypes.oneOf(['never', 'always', 'handled', ]),
     page: PropTypes.number,
     onChangeTab: PropTypes.func,
     onScroll: PropTypes.func,
@@ -51,6 +51,8 @@ const ScrollableTabView = createReactClass({
     scrollWithoutAnimation: PropTypes.bool,
     locked: PropTypes.bool,
     prerenderingSiblingsNumber: PropTypes.number,
+    collapsableBar: PropTypes.node,
+    AnimatedScrollView: PropTypes.func,
   },
 
   getDefaultProps() {
@@ -64,6 +66,7 @@ const ScrollableTabView = createReactClass({
       scrollWithoutAnimation: false,
       locked: false,
       prerenderingSiblingsNumber: 0,
+      AnimatedScrollView: Animated.ScrollView,
     };
   },
 
@@ -95,7 +98,10 @@ const ScrollableTabView = createReactClass({
       let positionAndroidValue = this.props.initialPage;
       let offsetAndroidValue = 0;
       positionAndroid.addListener(({ value, }) => {
-        positionAndroidValue = value;
+        if (positionAndroidValue !== value) {
+          positionAndroidValue = value;
+          offsetAndroidValue = 0;
+        }
         callListeners(positionAndroidValue + offsetAndroidValue);
       });
       offsetAndroid.addListener(({ value, }) => {
@@ -120,7 +126,7 @@ const ScrollableTabView = createReactClass({
       this.updateSceneKeys({ page: this.state.currentPage, children: this.props.children, });
     }
 
-    if (this.props.page >= 0 && this.props.page !== this.state.currentPage) {
+    if (this.props.page !== prevProps.page && this.props.page >= 0 && this.props.page !== this.state.currentPage) {
       this.goToPage(this.props.page);
     }
   },
@@ -166,6 +172,13 @@ const ScrollableTabView = createReactClass({
     } else {
       return <DefaultTabBar {...props} />;
     }
+  },
+
+  renderCollapsableBar() {
+    if (!this.props.collapsableBar) {
+      return null
+    }
+    return this.props.collapsableBar
   },
 
   updateSceneKeys({ page, children = this.props.children, callback = () => {}, }) {
@@ -227,7 +240,9 @@ const ScrollableTabView = createReactClass({
   renderScrollableContent() {
     if (Platform.OS === 'ios') {
       const scenes = this._composeScenes();
-      return <Animated.ScrollView
+      const { AnimatedScrollView } = this.props;
+      
+      return <AnimatedScrollView
         horizontal
         pagingEnabled
         automaticallyAdjustContentInsets={false}
@@ -246,10 +261,11 @@ const ScrollableTabView = createReactClass({
         directionalLockEnabled
         alwaysBounceVertical={false}
         keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps={this.props.keyboardShouldPersistTaps || 'never'}
         {...this.props.contentProps}
       >
           {scenes}
-      </Animated.ScrollView>;
+      </AnimatedScrollView>;
     } else {
       const scenes = this._composeScenes();
       return <AnimatedViewPagerAndroid
@@ -258,6 +274,7 @@ const ScrollableTabView = createReactClass({
         initialPage={this.props.initialPage}
         onPageSelected={this._updateSelectedPage}
         keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps={this.props.keyboardShouldPersistTaps || 'never'}
         scrollEnabled={!this.props.locked}
         onPageScroll={Animated.event(
           [{
@@ -375,6 +392,12 @@ const ScrollableTabView = createReactClass({
     if (this.props.tabBarBackgroundColor) {
       tabBarProps.backgroundColor = this.props.tabBarBackgroundColor;
     }
+    if (this.props.tabBarActiveBackgroundColor) {
+      tabBarProps.activeBackgroundColor = this.props.tabBarActiveBackgroundColor;
+    }
+    if (this.props.tabBarInactiveBackgroundColor) {
+      tabBarProps.inactiveBackgroundColor = this.props.tabBarInactiveBackgroundColor;
+    }
     if (this.props.tabBarActiveTextColor) {
       tabBarProps.activeTextColor = this.props.tabBarActiveTextColor;
     }
@@ -387,6 +410,12 @@ const ScrollableTabView = createReactClass({
     if (this.props.tabBarUnderlineStyle) {
       tabBarProps.underlineStyle = this.props.tabBarUnderlineStyle;
     }
+    if (this.props.tabBarTabStyle) {
+      tabBarProps.tabStyle = this.props.tabBarTabStyle;
+    }
+    if (this.props.tabBarContainerStyle) {
+      tabBarProps.style = this.props.tabBarContainerStyle;
+    }
     if (overlayTabs) {
       tabBarProps.style = {
         position: 'absolute',
@@ -396,11 +425,14 @@ const ScrollableTabView = createReactClass({
       };
     }
 
-    return <View style={[styles.container, this.props.style, ]} onLayout={this._handleLayout}>
+    const ContainerView = this.props.collapsableBar ? ScrollView : View
+
+    return <ContainerView style={[styles.container, this.props.style, ]} onLayout={this._handleLayout} stickyHeaderIndices={[1]}>
+      {this.renderCollapsableBar()}
       {this.props.tabBarPosition === 'top' && this.renderTabBar(tabBarProps)}
       {this.renderScrollableContent()}
       {(this.props.tabBarPosition === 'bottom' || overlayTabs) && this.renderTabBar(tabBarProps)}
-    </View>;
+    </ContainerView>;
   },
 });
 
