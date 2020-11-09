@@ -102,12 +102,14 @@ const ScrollableTabBar = createReactClass({
     newScrollX -= (containerWidth - (1 - pageOffset) * tabWidth - pageOffset * nextTabWidth) / 2
     newScrollX = newScrollX >= 0 ? newScrollX : 0
 
-    if (Platform.OS === 'android') {
-      this._scrollView.scrollTo({ x: newScrollX, y: 0, animated: false })
-    } else {
-      const rightBoundScroll = this._tabContainerMeasurements.width - (this._containerMeasurements.width)
+    if (Platform.OS === 'ios') {
+      const rightBoundScroll = this._tabContainerMeasurements.width
       newScrollX = newScrollX > rightBoundScroll ? rightBoundScroll : newScrollX
-      this._scrollView.scrollTo({ x: newScrollX, y: 0, animated: false })
+    }
+    if ((this.props.tabs.length - 1) === position) {
+      this._scrollView && this._scrollView.scrollToEnd({ animated: false })
+    } else {
+      this._scrollView && this._scrollView.scrollTo({ x: newScrollX, y: 0, animated: false })
     }
   },
 
